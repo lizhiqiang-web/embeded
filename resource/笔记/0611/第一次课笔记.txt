@@ -1,0 +1,204 @@
+1.	开发环境搭建
+
+	IT攻城狮(程序猿(媛))每天的工作任务是什么?
+		编辑代码(写代码)		-->			编译代码		-->			运行及调试(找BUG)
+
+	编辑代码:
+		VSCode 	
+		VC++6.0
+		CodeBlcoks
+		....
+		Source Insight 4.0 <----
+
+	编译代码:
+		编译器
+		
+		VMware Workstation(虚拟机) + Ubuntu18.04(Linux操作系统)
+		
+	运行及调试：
+		Secure CRT
+		
+	
+2.	成功在开发板上运行代码		
+	1.	连接开发板
+		
+		按照<SercureCRT连接设置.PNG>连接开发板。
+		
+	2.	打开虚拟机，登录Linux操作系统。
+		密码：123456
+
+	3.	设置共享文件夹
+		点击"虚拟机"-->点击"设置"-->点击"选项"-->点击"共享文件夹"-->点击"总是启用"
+		-->点击"添加"-->将你用来保存代码的文件夹设置为共享文件夹即可.
+
+	4.	进入共享文件夹
+		点击Linux桌面左下角的"文件"图标-->点击"其它位置"-->点击"计算机"-->点击"mnt"-->点击"hgfs"
+		-->点击"虚拟机"-->点击"code"(你的共享文件夹的名字)
+
+	5.	对代码进行编译
+		5.1 右击空白处,点击"在终端打开"打开一个终端
+
+		5.2 在终端上输入指令进行代码编译
+		
+			如果你想把你的代码放在虚拟机上运行：
+				如：gcc main.c				//如果你的代码没有语法错误，则会生成一个a.out可执行文件
+			
+			如果你想把你的代码放在开发板上运行：
+				如：arm-linux-gcc main.c	//如果你的代码没有语法错误，则会生成一个a.out可执行文件
+				或者
+					arm-linux-gcc main.c -o cxk	//如果你的代码没有语法错误，则会指定生成一个cxk可执行文件
+	
+	6.	运行代码
+	
+		如果是在虚拟机上执行代码:
+			如：./a.out
+	
+		如果是在开发板上执行代码：
+		1.	通过SecureCRT连接开发板
+		
+		2.	进入到家目录下创建一个专门属于你的文件夹
+				cd /home		//进入到家目录
+				mkdir long		//创建一个目录long，目录的名字你自己决定
+		
+		3.	下载代码
+				rx cxk			//rx后面加的就是你要下载的东西的名字
+				按下回车后，点击菜单栏"传输"-->点击"发送Xmodem"-->找到你要下载的文件即可。
+				
+		4.	加权限
+				chmod 0777 cxk	//给cxk加上最高的权限
+		
+		5.	运行代码
+				./cxk			//在开发板上运行代码cxk	
+
+3.	文件IO
+
+	Everyting is a file,In Linux.一切皆文件。
+	
+	3.1 open打开文件
+		a.	头文件
+			#include <sys/types.h>
+			#include <sys/stat.h>
+			#include <fcntl.h>
+			
+		b.	函数原型
+			int open(const char *pathname, int flags);
+			int open(const char *pathname, int flags, mode_t mode);
+		
+		c.	函数功能
+			打开或者有可能创建一个文件
+		
+		d.	函数参数
+			pathname					路径名。指你要打开的文件的路径。
+										路径可以是绝对路径和相对路径。
+										
+										例子：
+											open("/mnt/hgfs/code/main.c",);
+											
+			flags						标志位。表示文件的访问方式。
+			
+										以下三个选项中必须选择一个并且只能选择一个：
+										O_RDONLY	只读
+										O_WRONLY	只写
+										O_RDWR		读写
+										
+										例子：
+											int fd = open("/mnt/hgfs/code/main.c",O_RDONLY);//以只读的方式打开main.c
+										
+										以下选项可以选择多个也可以不选择，视情况而定：
+										O_CREAT		创建
+										
+											例子：
+												//以只读的方式打开1.c，如果文件不存在，则先创建后打开
+												//如果存在则直接打开
+												open("/mnt/hgfs/code/1.c",O_RDONLY | O_CREAT,);
+
+										O_APPEND	追加
+											
+											例子：
+												//以只读的方式打开1.c，打开1.c后，光标会来到文件的末尾，
+												//此时往文件中写入内容是写入到了文件的尾部
+												open("/mnt/hgfs/code/1.c",O_RDONLY | O_APPEND);											
+				
+			mode						当你的open函数第二个参数中有O_CREAT选项时，则需要第三个参数，否则则不需要。
+										权限。
+										例子：
+											//以只读的方式打开1.c，如果文件不存在，则先创建后打开，创建出来后为最高权限
+											//如果存在则直接打开
+											open("/mnt/hgfs/code/1.c",O_RDONLY | O_CREAT,0777);
+		
+		e.	函数返回值
+			如果打开文件失败则返回-1，如果打开文件成功，则返回一个(>2)的整数。
+			此整数被称之为文件描述符。
+	
+	3.2 read读取文件
+		a.	头文件
+			#include <unistd.h>
+		
+		b.	函数原型
+			ssize_t read(int fd, void *buf, size_t count);
+		
+		c.	函数功能
+			从文件描述符fd指定的文件中读取count个字节的数据并把其保存到buf指定的空间中去
+		
+		d.	函数参数
+			@fd							表示要读取内容的文件的文件描述符	
+										一般是通过open的返回值获取
+										
+			@buf						指向的空间就是用来保存从文件中读取出来的数据
+			
+			@count						指定要读取的字节数
+
+		e.	函数返回值	
+			读取失败则返回-1，读取成功则返回真正读取到的字节数。
+			
+			例子：
+				unsigned char buf[512] = {0};
+				int ret = read(fd,buf,512);
+			
+	
+	3.3 write写入文件
+	
+		a.	头文件
+			#include <unistd.h>
+		
+		b.	函数原型
+			ssize_t write(int fd, const void *buf, size_t count);
+		
+		c.	函数功能
+			将buf指向的空间中的count个字节的数据写入到文件描述符fd所表示的文件中去
+		
+		d.	函数参数
+			@fd							表示要写入内容的文件的文件描述符	
+										一般是通过open的返回值获取
+										
+			@buf						指向的空间中保存着要写入到文件中的数据
+			
+			@count						指定要写入的字节数		
+		
+		e.	函数返回值
+			写入失败则返回-1，写入成功则返回真正写入的字节数。
+			
+			例子：
+				unsigned char buf[512] = {"Hello"};
+				int ret = write(fd,buf,5);
+		
+	3.4 close关闭文件
+		a.	头文件
+			#include <unistd.h>
+	
+		b.	函数原型
+			int close(int fd);
+		
+		c.	函数功能
+			关闭文件
+		
+		d.	函数参数
+			fd								表示要关闭的文件的文件描述符
+		
+		e.	函数返回值
+			关闭成功返回0，关闭失败返回-1.
+
+
+	作业：
+		从文件1中将所有的内容读取出来后将其写入到文件2的末尾，再将文件2的所有内容都读取出来后打印到终端上。
+		

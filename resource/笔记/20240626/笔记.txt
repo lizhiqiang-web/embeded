@@ -1,0 +1,240 @@
+网络编程基础
+    TCP/IP 4层模型
+        应用层              应用层协议：http ftp......
+        传输层              协议：TCP/UDP
+        网络层              ip
+        网络传输层(硬件)     硬件的实现
+
+    TCP：高可靠性传输 
+    UDP: 高效传输 
+    
+ip：现在用的ip是四个字节  IPV4
+    192.168.110.249 -> c类
+    ip：由两个东西组成
+        ip地址 = 网络号 + 主机号
+            网络号：标记一个子网，如果我们想要通信，必须处于同一个子网
+            主机号：标记一台主机，主机在子网里面是唯一的存在，因此必须不一样
+    子网掩码用于去区分网络号与主机号,和ip地址的字节长度是一样的
+        子网掩码的二进制形式由连续的1+连续的0组成
+        11111111 11111111 00000000 00000000
+    前面是1后面是0
+        1对应ip地址的一些bit就是网络号
+        0对应ip地址的一些bit就是主机号
+
+    如：
+        ip:     192.168.110.249
+        子网掩码：255.255.255.0
+                11111111 11111111 11111111 00000000
+            对应ip地址的前面3个字节为网络号
+            后面一个字节为0  因此ip地址后面的1个字节为主机号
+            网络号：192.168.110
+            主机号：249
+
+ip地址是标记主机的，但是一个主机上面可能会跑多个网络程序
+    因此我们需要区分网络程序 --- 端口号
+    0~1024之间为知名端口，为知名网络程序使用  因此我们不能用
+    1024 ~ 49151 注册端口，随你用，只要不相冲
+    49151 ~ 后面 动态端口，
+    如果端口绑定失败我们就换一个，尽量用那种不那么特殊的号码
+
+标记我们的网络程序需要
+    ip + 端口
+
+UDP网络程序编写步骤
+    客户端 Client
+        1 创建套接字
+        2 准备服务器地址
+        3 发送信息给服务器
+            后面就可以正常收发了
+        4 不用了需要关闭套接字
+
+    服务端 Server
+        1 创建套接字
+        2 绑定地址到套接字
+        3 等待客户端发信息过来
+            后面就可以正常收发了
+        4 不用了需要关闭套接字
+
+创建套接字：
+    NAME
+       socket - create an endpoint for communication
+
+SYNOPSIS
+       #include <sys/types.h>          /* See NOTES */
+       #include <sys/socket.h>
+
+       int socket(int domain, int type, int protocol);
+            domain：协议
+                AF_INET     IPV4
+                AF_INET6    IPV6
+            type:套接字类型
+                SOCK_STREAM 流式套接字  TCP
+                SOCK_DGRAM    数据报    UDP
+            protocol:协议
+                这里填0  表示不知名的用户层协议
+        返回值：
+            成功返回一个套接字，类似与文件描述符，后续的收发数据都要基于这个套接字
+            失败返回-1，同时errno被设置
+
+绑定地址到套接字
+    NAME 名称
+       bind - 将一个名字和一个套接字绑定到一起(赋一个名字给一个套接字)
+
+SYNOPSIS 概述
+       #include <sys/types.h>
+       #include <sys/socket.h>
+
+       int bind(int sockfd, struct sockaddr *my_addr, socklen_t addrlen);
+            sockfd：套接字
+            my_addr：地址  struct sockaddr这个类型是一个公版
+                而我们去使用网络的时候不能用这个类型
+                我们需要细化到网络地址上面去
+                    struct sockaddr_in {
+                        sa_family_t sin_family; /* 地址族: AF_INET */
+                        u_int16_t sin_port; /* 按网络字节次序的端口 */
+                                需要转换
+                            SYNOPSIS
+                                #include <arpa/inet.h>
+
+                                uint32_t htonl(uint32_t hostlong);
+                                uint16_t htons(uint16_t hostshort);将主机转网络
+                                uint32_t ntohl(uint32_t netlong);
+                                uint16_t ntohs(uint16_t netshort);//将网络转主机
+                                    l:四个字节的
+                                    s:两个字节的
+                        struct in_addr sin_addr; /* internet地址 */
+                    };
+
+                        /* Internet地址. */
+                    struct in_addr {
+                        u_int32_t s_addr; /* 按网络字节次序的地址 */
+                    };
+                                我们写ip地址都是点分式(字符串)，我们需要转换为网络上面的整数
+                        #include <sys/socket.h>
+                        #include <netinet/in.h>
+                        #include <arpa/inet.h>
+
+                        in_addr_t inet_addr(const char *cp);
+                            cp:点分式ip地址  如："192.168.110.249"
+                        返回值就是转换好了的网络ip地址
+        addrlen：地址的长度
+        成功返回0失败返回-1
+网络字节次序:是大端模式 高地址保存低字节
+    而我们的电脑基本都是小端模式：低地址保存低字节
+
+
+UDP的信息收发
+
+SYNOPSIS
+       #include <sys/types.h>
+       #include <sys/socket.h>
+                接收信息
+       ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
+                        struct sockaddr *src_addr, socklen_t *addrlen);
+        sockfd：套接字
+        buf：你接到的信息放在哪里
+        len：你要接收多长
+        flags：标志  填0即可
+        src_addr：保存对方的ip地址的内存空间 如果给NULL 表示不需要保存对方的ip地址
+        addrlen：内存空间的长度 如果给NULL 表示不需要保存对方的ip地址长度
+        返回值：
+            成功返回实际收到的字节数
+            失败返回-1
+#include <sys/types.h>
+       #include <sys/socket.h>
+            发送信息
+       ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
+                      const struct sockaddr *dest_addr, socklen_t addrlen);
+        sockfd：套接字
+        buf：你要发送的数据
+        len：你要发送多长
+        flags：标志 填0即可
+        dest_addr：指定你要发给谁 对方的IP地址
+        addrlen：ip地址长度
+        返回值：
+            成功返回实际发送的字节数
+            失败返回-1
+
+关闭套接字
+    SYNOPSIS
+       #include <sys/socket.h>
+
+       int shutdown(int sockfd, int how);
+            sockfd:套接字 
+            how：怎么去关闭
+                SHUT_RD     关闭读
+                SHUT_WR     关闭写
+                SHUT_RDWR   关闭读写
+
+    shutdown(sockfd,SHUT_RDWR) == close(sockfd)
+
+
+我们的开发板只能连接有线，但是由于教室条件有限
+	开发板的有线没有办法接到教室的局域网
+	我们只能将乌班图和开发板对接，通过这个有线网卡
+		网线的一头接开发板，另外一头直接怼到电脑有线网卡
+		我们需要设置vmware -> 将乌班图直接跳到有线网卡
+		以管理员方式打开vmware （确保你的乌班图是关机状态）
+		选择乌班图，不要打开了
+		vmware -> player -> 管理 ->虚拟机设置 -> 网络适配器
+			网络适配器右边有一个配置适配器 -> 打开会看到几个网卡
+				选择你的有线网卡(只能选这个)
+				确定即可
+			运行你的乌班图
+			设置乌班图网络ip地址
+				-> 右上角那个电源标志那里点开
+				-> 有线连接
+				-> 有线设置 (关闭有线连接)
+				-> 有线连接坐标有一个齿轮点开
+				-> ipv4 -> 手动 -> 设置ip地址
+					地址：192.168.1.xx (如：192.168.1.100)
+					子网掩码：255.255.255.0
+					网关：192.168.1.1
+					DNS：可以不用填  也可以填114.114.114.114 也可以192.168.1.1
+				-> 应用  -> 打开有线连接 关闭窗口即可
+			弄好后看一下自己的ip地址有没有改
+				打开终端：命令行输入 ifconfig
+
+开启你们的开发板：
+	开发板的ip地址配置：
+							这个xx和乌班图的不一样
+		ifconfig eth0 192.168.1.xx netmask 255.255.255.0 up
+	eg:
+		ifconfig eth0 192.168.110.247 netmask 255.255.255.0 up
+	
+	测试一下是否连接完成
+		ping 192.168.1.xx (xx是对方)
+			有时间返回表示你的线是通的
+			有可能你的防火墙将ping给阻止了，将防火墙关闭就可以了
+	网络通了，就可以去测试代码了
+		你的服务器应该是在乌班图上面
+		客户端是在开发板上面
+		
+	重启开发板后ifconfig eth0 192.168.1.xx netmask 255.255.255.0 up得重新执行
+		如果你知道linux的配置的
+		可以将这个命令写入 /etc/profile的启动脚本
+			可以将这个命令放在这个文件的最后一行
+			每次启动的时候会自动给你执行
+
+这次语音解决方案用的是科大讯飞的
+    用的是离线版本
+
+    bin文件里面的call.bnf为指定规则的一个文件，不能删除
+
+    科大讯飞去识别一个固定文件，我们只需要改写这个文件就可以做到
+        每次识别不同的语言
+        在识别的时候它需要用一个库  libs/x64/libmsc.so
+        将上面路径的.so文件copy到 /lib
+
+配置录音环境
+    
+
+
+
+
+
+
+				
+					
+					
+					

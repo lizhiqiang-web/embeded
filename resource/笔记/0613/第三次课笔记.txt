@@ -1,0 +1,49 @@
+1.	字符取模
+
+
+2.	触摸事件
+
+	触摸屏文件路径的:/dev/input/event0
+
+	struct input_event {
+		struct timeval time;
+			//时间
+		
+		__u16 type;
+			//表示输入事件类型
+			#define EV_KEY          0x01
+				按键事件
+		
+			#define EV_ABS          0x03
+				绝对坐标轴事件
+			
+			...
+		
+		__u16 code;
+			//code的含义根据type的不同也有所不同
+			if type == EV_KEY
+				code保存的就是按键的键值，如：
+				
+				#define BTN_TOUCH       0x14a
+					触摸屏按键
+				
+				//....
+				
+			if type == EV_ABS
+				code保存的就是坐标轴
+				
+				ABS_X		X轴
+				
+				ABS_Y		Y轴
+
+		__s32 value;
+			//value的含义根据type的不同也有所不同
+			if type == EV_KEY
+				value保存的是按键的状态
+					0		松开
+					1		按下
+			
+			if type == EV_ABS
+				value保存的就是坐标值
+			
+	};

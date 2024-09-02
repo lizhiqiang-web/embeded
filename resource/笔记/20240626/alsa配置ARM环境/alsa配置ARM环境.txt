@@ -1,0 +1,44 @@
+首先将alsa-1.0.tar.gz这个文件拷贝到开发板的 /home   如果没有这个文件请建立
+				mkdir /home
+//按照下面写的来，不要有自己想法
+		
+	cp /mnt/udisk/alsa-1.0.tar.gz /home
+	
+	在home目录里面解压这个文件
+		tar xvf alsa-1.0.tar.gz
+
+	进入  alsa-1.0这个文件夹 
+	进入这个文件夹里面的bin目录
+		将这个bin目录里面的  arecord aplay这两个文件复制到 /bin
+			cp /home/alsa-1.0/bin/arecord aplay /bin
+	
+	然后cd ..
+	进入lib这个文件夹
+		将里面so这些动态库复制到 /lib这个文件夹
+			cp /home/alsa-1.0/lib/libasound.s* /lib
+
+	
+	将alsa-1.0文件里面的所有的文件夹拷贝到/home/gec/alsa-1.0.22
+		mkdir -p /home/gec/alsa-1.0.22
+		
+		cp -rf /home/alsa-1.0/* /home/gec/alsa-1.0.22
+
+录音环境配置好了 
+	我们测试
+		录音：arecord 1.wav  只要正常录音就可以了  ctrl + c结束
+		放音：aplay 1.wav
+
+	arecord -d4 -c1 -r16000 -traw -fS16_LE hehe.pcm
+	录音4秒 频率16000
+	system("arecord -d4 -c1 -r16000 -traw -fS16_LE hehe.pcm");
+	
+
+
+阿里云服务器：47.98.153.253 直接在这个里面跑你的服务端
+	端口 10000 ~ 20000 -> TCP
+平时的操作可以用 ssh去连接
+	ssh 47.98.153.253
+
+
+	
+	

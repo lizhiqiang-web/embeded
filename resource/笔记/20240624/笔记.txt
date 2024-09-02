@@ -1,0 +1,332 @@
+并行：严格意义上面的同时发生
+	要想有并行，我们的cpu就必须有多个核心
+	但是我们的系统里面程序并行执行的问题有很多
+	因此不能一个核心去跑一个代码
+并发：看起来像并行
+	基于很小的一个时间段，让我们的程序进轮转
+	只要时间足够短，那么人就感觉不出这个程序是中途的时候
+	已经停下来了
+	并发的实现在系统里面是有三个时间段的
+		1 就绪态
+		2 运行态
+		3 阻塞态
+	当一个程序想要执行的时候首先会进入就绪态
+		当cpu执行完上一个程序，这个在就绪态的程序就会
+		转入cpu进入运行态，一段时间之后，cpu就会将这个程序
+		给踢出来，让其进入阻塞/就绪
+
+在linux里面并发由两个东西实现
+	1 进程:我们的程序在计算机里面的一次执行
+		这个执行的过程在计算机里面就是进程的概念
+		系统依据进程去分配资源
+		我们如果没有其他的并发需求，一般不会用进程去做并发
+		资源分配以依照进程的，有可能会浪费很多的内存
+		而进程是独立的执行单元，如果有这种独立的概念
+		那么我们就可以使用进程去做并发
+	2 线程:现在我们依照线程来进行编程
+		线程是进程内部的一个并发分支
+		线程由于属于进程，因此线程共享进程内部的资源
+		cpu的调度的最小单元是线程
+
+linux里面的线程编程接口
+	linux里面线程刚开始是不存在的
+	因此在使用之前要先创建
+
+NAME
+       pthread_create - create a new thread
+		创建一个新的线程
+SYNOPSIS
+       #include <pthread.h>
+
+       int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+                          void *(*start_routine) (void *), void *arg);
+		thread：保存开辟出来的线程的id
+					后续我们想要找到这个线程，就可以通过这个id
+		attr：线程的基本属性
+			线程的属性有很多，而我们大部分的时候是不需要知道这个属性
+			如果后续你想设置一些属性，我们可以单独进行
+			一般我们开辟线程的时候用默认属性即可
+			这个参数就可以直接填NULL
+		start_routine：一个函数指针 指向任务函数
+			线程是要执行任务的，这个函数指针就指向它的任务
+			函数的原型：
+				void * func(void * arg)//你们自己的任务函数就必须要这么写
+				{
+				}
+				c语言里面函数的名字就代表了这个函数的地址
+				因此这个参数直接给函数名即可
+					func(); ->这种叫调用函数，不行
+		arg：函数指针没有办法携带参数，因此需要一个传参的接口
+			这个参数就是为了第三个参数里面指向的这个函数的参数
+		返回值：
+			成功开辟这个线程返回0
+			失败返回-1，同时errno被设置
+       Compile and link with -pthread.
+			我们需要链接这个库
+			我们在编译的时候需要加上这个库
+			gcc/arm-linux-gcc main.c -o main -lpthread
+
+	我们的进程默认有一个主线程 -- main函数
+	通过这个主线程可以开辟子线程
+		子线程也可以开辟子线程
+	子线程死亡主线程不受影响
+		但是主线程死亡子线程必死
+
+给大家练习时间，将这个线程理解
+	写一个代码测试一下
+
+	线程在开辟的时候需要消耗内存，当我们的线程死亡的时候这些内存还是
+		属于这个死亡的线程 ---- 俗称僵尸线程
+		这个线程死亡了，但是还占用这个内存不释放
+		因此线程死亡的时候我们要给线程收尸
+		
+PTHREAD_JOIN(3)            Linux Programmer's Manual           PTHREAD_JOIN(3)
+
+NAME
+       pthread_join - join with a terminated thread
+		等待线程的状态发生改变
+SYNOPSIS
+       #include <pthread.h>
+			
+			//阻塞 也就是它会卡在这里等待线程死亡
+       int pthread_join(pthread_t thread, void **retval);
+			thread：你要等待的线程是哪一个
+				将线程的id传进去即可
+			retval：线程的退出吗
+				线程在死亡的时候我们返回的退出码
+       Compile and link with -pthread.
+由于我们刚刚接触线程，直接使用	pthread_join去等待，可能会有一些问题
+	因此我们现在可以了解，但是不强求你去用
+	对于你们来讲有一个更加舒服的方式 ---- 让线程自己给自己收尸
+		这就是线程的一个分离属性
+		分离出来的线程就不能用pthread_join等待死亡
+	线程开辟的时候如果使用的是默认属性，那么线程默认不分离	
+NAME
+       pthread_detach - detach a thread
+		分离这个线程
+SYNOPSIS
+       #include <pthread.h>
+
+       int pthread_detach(pthread_t thread);
+		thread：你要分离哪一个线程
+       Compile and link with -pthread.
+		我们可以开辟线程之后直接将这个线程分离
+		也可以让这个线程自己分离自己
+			线程只需要得到自己的线程id即可
+NAME
+       pthread_self - obtain ID of the calling thread
+
+SYNOPSIS
+       #include <pthread.h>
+
+       pthread_t pthread_self(void);//返回线程自己的id
+
+       Compile and link with -pthread.
+			
+		
+		pthread_detach(pthread_self());//当线程自己调用这个函数的时候
+								//线程就会将自己给分离
+	
+我们操作线程，有的时候我们希望这个线程死掉
+		也就是我们需要主动让这个线程死 --- 杀死这个线程
+NAME
+       pthread_cancel - send a cancellation request to a thread
+			
+SYNOPSIS
+       #include <pthread.h>
+
+       int pthread_cancel(pthread_t thread);
+			发送一个终止信号给线程，线程收到这个信号之后就会死亡
+			thread：你想要哪一个线程死
+       Compile and link with -pthread.
+		
+int pthread_setcancelstate(int state, int *oldstate);
+	设置线程它的是否能被杀死的属性
+		state：属性
+			PTHREAD_CANCEL_ENABLE	能被杀死
+			PTHREAD_CANCEL_DISABLE	不能被杀死
+		oldstate：原先的状态
+	
+
+我们可以在多线程里面运行我们的终端上面的命令
+	开发板上面有一个命令
+		madplay -> 播放音乐
+	
+	直接在命令行操作
+		madplay  1.mp3 ->会打印一些什么样子的信息
+		这些信息我们不需要知道 因此我们需要静默播放
+		madplay -Q 1.mp3
+		
+	madplay -Q 1.mp3要在命令行才能操作
+		我们需要再代码里面执行shell指令
+
+NAME
+       system - execute a shell command
+
+SYNOPSIS
+       #include <stdlib.h>
+
+       int system(const char *command);	
+			command:执行的指令
+				原型就是char *一个字符串
+				我们直接将命令填到这里来就可以了
+				能在终端上面操作的指令都可以放在这里来操作
+				"madplay -Q 1.mp3"
+		如果这个指令成功执行则返回0
+			否则返回-1	
+			你的指令没有执行完毕，那么这个system是不会返回的
+			只有你的指令执行完毕了，system才会返回
+		madplay -Q 1.mp3什么时候才能执行完？
+			1 这首歌播放完毕
+			2 我们杀死这个madplay进程
+				killall 可以指定杀死的程序的名字
+				killall -9 madplay
+	
+	eg：
+
+	
+linux触摸屏属于输入事件
+	输入事件都是维护在linux/input.h这个头文件的
+	维护的结构体是
+		struct input_event {
+			struct timeval time;//输入事件发生的时间
+					//这个时间是一个绝对时间 1970.1.1 0:0:0到现在所有的秒数
+					//你的输入事件发生在什么时候 这个时间就是什么时候
+					//我们想做点击和长按的判断就可以依照这个时间
+					//你操作触摸屏的时候点到屏幕有一个时间
+					//抬起来的时候有一个时间 时间差就是操作触摸屏的时间
+					//如果你的本次操作是点击  时间大于某一个时间阈值  那么我就可以认为你此次是长按操作
+					//这个时间阈值是程序员自己设置的
+			__u16 type;//你的输入事件的类型
+						//#define EV_ABS			0x03  这个事件就是我们要的触摸屏事件
+			__u16 code;//编码   输入事件里面我们是区分x轴和y轴
+						#define ABS_X			0x00		这个是x轴
+						#define ABS_Y			0x01		这个是y轴	
+			__s32 value;//值  坐标值具体是多少
+		};
+
+	触摸屏的文件名
+		/dev/input/event0
+
+Everything is file in Linux!!  linux里面神马都是文件
+	操作触摸屏就是操作这个文件
+
+
+
+type:3  code:0  value:1022	点击右上角
+type:3  code:1  value:42
+type:1  code:330  value:1		330就是所谓的压力值
+type:0  code:0  value:0			#define BTN_TOUCH		0x14a	压力值
+type:1  code:330  value:0
+type:0  code:0  value:0
+
+
+type:3  code:0  value:968 点击右下角
+type:3  code:1  value:544
+type:1  code:330  value:1
+type:0  code:0  value:0
+type:1  code:330  value:0
+type:0  code:0  value:0
+
+	
+type:3  code:0  value:1021 从右上滑动到中间
+type:3  code:1  value:14
+type:1  code:330  value:1
+type:0  code:0  value:0
+type:3  code:0  value:1015
+type:0  code:0  value:0
+type:3  code:0  value:1004
+type:0  code:0  value:0
+type:3  code:0  value:988
+type:3  code:1  value:17
+type:0  code:0  value:0
+type:3  code:0  value:969
+type:3  code:1  value:26
+type:0  code:0  value:0
+type:3  code:0  value:947
+type:3  code:1  value:39
+type:0  code:0  value:0
+type:3  code:0  value:925
+type:3  code:1  value:53
+type:0  code:0  value:0
+type:3  code:0  value:901
+type:3  code:1  value:69
+type:0  code:0  value:0
+type:3  code:0  value:872
+type:3  code:1  value:88
+type:0  code:0  value:0
+type:3  code:0  value:841
+type:3  code:1  value:106
+type:0  code:0  value:0
+type:3  code:0  value:808
+type:3  code:1  value:124
+type:0  code:0  value:0
+type:3  code:0  value:775
+type:3  code:1  value:142
+type:0  code:0  value:0
+type:3  code:0  value:742
+type:3  code:1  value:160
+type:0  code:0  value:0
+type:3  code:0  value:710
+type:3  code:1  value:177
+type:0  code:0  value:0
+type:3  code:0  value:678
+type:3  code:1  value:192
+type:0  code:0  value:0
+type:3  code:0  value:648
+type:3  code:1  value:207
+type:0  code:0  value:0
+type:3  code:0  value:618
+type:3  code:1  value:222
+type:0  code:0  value:0
+type:3  code:0  value:591
+type:3  code:1  value:236
+type:0  code:0  value:0
+type:3  code:0  value:566
+type:3  code:1  value:248
+type:0  code:0  value:0
+type:3  code:0  value:544
+type:3  code:1  value:258
+type:0  code:0  value:0
+type:3  code:0  value:526
+type:3  code:1  value:266
+type:0  code:0  value:0
+type:3  code:0  value:512
+type:3  code:1  value:273
+type:0  code:0  value:0
+type:3  code:0  value:501
+type:3  code:1  value:278
+type:0  code:0  value:0
+type:3  code:0  value:491
+type:3  code:1  value:280
+type:0  code:0  value:0
+type:1  code:330  value:0
+type:0  code:0  value:0	
+
+
+
+计算机里面的随机数
+	NAME
+       rand, srand - pseudo-random number generator
+
+SYNOPSIS
+       #include <stdlib.h>
+		void srand(unsigned int seed);
+			//利用随机因子产生一组随机数
+			seed：随机因子  因子相同 随机数就相同  因子不同随机数就不同
+				因此我们要给不同的随机因子
+				一般利用系统时间
+			srand((unsigned int)time(NULL));
+       	int rand(void);
+			//拿取这组随机数
+			每拿取一个  rand自动往后面走一个 
+
+NAME
+       time - get time in seconds
+
+SYNOPSIS
+       #include <time.h>
+
+       time_t time(time_t *tloc);
+	   	tloc：保存时间的地址  填NULL表示只采用返回值
+		返回值就是系统时间
